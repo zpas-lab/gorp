@@ -1175,6 +1175,25 @@ func argsString(args ...interface{}) string {
 		switch v.(type) {
 		case string:
 			v = fmt.Sprintf("%q", v)
+		case []byte:
+			bb := v.([]byte)
+			truncateAfter := 5
+
+			// initial buffer size: [] (2) + 5x4 digits (byte value + space) (20) + ..._ (4) + (len) (5)
+			// == 2 + 20 + 4 + 5 = 31; 32 for safety ;-)
+			buf := bytes.NewBuffer(make([]byte, 0, 12+4*truncateAfter))
+			buf.WriteByte('[')
+			for i := 0; i < truncateAfter; i++ {
+				if i >= len(bb) {
+					break
+				}
+				buf.WriteString(fmt.Sprintf("%d ", bb[i]))
+			}
+			if len(bb) > truncateAfter {
+				buf.WriteString("... ")
+			}
+			buf.WriteString(fmt.Sprintf("(%d)]", len(bb)))
+			v = buf.String()
 		default:
 			v = fmt.Sprintf("%v", v)
 		}
