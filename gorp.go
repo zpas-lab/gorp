@@ -20,6 +20,7 @@ import (
 	"reflect"
 	"regexp"
 	"strings"
+	"sync/atomic"
 	"time"
 )
 
@@ -172,10 +173,10 @@ type TableMap struct {
 	keys           []*ColumnMap
 	uniqueTogether [][]string
 	version        *ColumnMap
-	insertPlan     bindPlan
-	updatePlan     bindPlan
-	deletePlan     bindPlan
-	getPlan        bindPlan
+	insertPlan     atomic.Value
+	updatePlan     atomic.Value
+	deletePlan     atomic.Value
+	getPlan        atomic.Value
 	dbmap          *DbMap
 }
 
@@ -183,10 +184,10 @@ type TableMap struct {
 // associated with this TableMap.  Call this if you've modified
 // any column names or the table name itself.
 func (t *TableMap) ResetSql() {
-	t.insertPlan = bindPlan{}
-	t.updatePlan = bindPlan{}
-	t.deletePlan = bindPlan{}
-	t.getPlan = bindPlan{}
+	t.insertPlan.Store((*bindPlan)(nil))
+	t.updatePlan.Store((*bindPlan)(nil))
+	t.deletePlan.Store((*bindPlan)(nil))
+	t.getPlan.Store((*bindPlan)(nil))
 }
 
 // SetKeys lets you specify the fields on a struct that map to primary
@@ -337,8 +338,9 @@ type bindInstance struct {
 }
 
 func (t *TableMap) bindInsert(elem reflect.Value) (bindInstance, error) {
-	plan := t.insertPlan
-	if plan.query == "" {
+	plan := t.insertPlan.Load().(*bindPlan)
+	if plan == nil {
+		plan = &bindPlan{}
 		plan.autoIncrIdx = -1
 
 		s := bytes.Buffer{}
@@ -388,15 +390,16 @@ func (t *TableMap) bindInsert(elem reflect.Value) (bindInstance, error) {
 		s.WriteString(t.dbmap.Dialect.QuerySuffix())
 
 		plan.query = s.String()
-		t.insertPlan = plan
+		t.insertPlan.Store(plan)
 	}
 
 	return plan.createBindInstance(elem, t.dbmap.TypeConverter)
 }
 
 func (t *TableMap) bindUpdate(elem reflect.Value) (bindInstance, error) {
-	plan := t.updatePlan
-	if plan.query == "" {
+	plan := t.updatePlan.Load().(*bindPlan)
+	if plan == nil {
+		plan = &bindPlan{}
 
 		s := bytes.Buffer{}
 		s.WriteString(fmt.Sprintf("update %s set ", t.dbmap.Dialect.QuotedTableForQuery(t.SchemaName, t.TableName)))
@@ -446,15 +449,16 @@ func (t *TableMap) bindUpdate(elem reflect.Value) (bindInstance, error) {
 		s.WriteString(t.dbmap.Dialect.QuerySuffix())
 
 		plan.query = s.String()
-		t.updatePlan = plan
+		t.updatePlan.Store(plan)
 	}
 
 	return plan.createBindInstance(elem, t.dbmap.TypeConverter)
 }
 
 func (t *TableMap) bindDelete(elem reflect.Value) (bindInstance, error) {
-	plan := t.deletePlan
-	if plan.query == "" {
+	plan := t.deletePlan.Load().(*bindPlan)
+	if plan == nil {
+		plan = &bindPlan{}
 
 		s := bytes.Buffer{}
 		s.WriteString(fmt.Sprintf("delete from %s", t.dbmap.Dialect.QuotedTableForQuery(t.SchemaName, t.TableName)))
@@ -492,15 +496,16 @@ func (t *TableMap) bindDelete(elem reflect.Value) (bindInstance, error) {
 		s.WriteString(t.dbmap.Dialect.QuerySuffix())
 
 		plan.query = s.String()
-		t.deletePlan = plan
+		t.deletePlan.Store(plan)
 	}
 
 	return plan.createBindInstance(elem, t.dbmap.TypeConverter)
 }
 
 func (t *TableMap) bindGet() bindPlan {
-	plan := t.getPlan
-	if plan.query == "" {
+	plan := t.getPlan.Load().(*bindPlan)
+	if plan == nil {
+		plan = &bindPlan{}
 
 		s := bytes.Buffer{}
 		s.WriteString("select ")
@@ -533,10 +538,10 @@ func (t *TableMap) bindGet() bindPlan {
 		s.WriteString(t.dbmap.Dialect.QuerySuffix())
 
 		plan.query = s.String()
-		t.getPlan = plan
+		t.getPlan.Store(plan)
 	}
 
-	return plan
+	return *plan
 }
 
 // ColumnMap represents a mapping between a Go struct field and a single
