@@ -37,18 +37,18 @@ not infrastructure.
 ## Installation ##
 
     # install the library:
-    go get github.com/go-gorp/gorp
+    go get github.com/zpas-lab/gorp
     
     // use in your .go code:
     import (
-        "github.com/go-gorp/gorp"
+        "github.com/zpas-lab/gorp"
     )
 
 ## API Documentation ##
 
 Full godoc output from the latest code in master is available here:
 
-http://godoc.org/github.com/go-gorp/gorp
+http://godoc.org/github.com/zpas-lab/gorp
 
 ## Quickstart
 
@@ -57,7 +57,7 @@ package main
 
 import (
     "database/sql"
-    "github.com/go-gorp/gorp"
+    "github.com/zpas-lab/gorp"
     _ "github.com/mattn/go-sqlite3"
     "log"
     "time"
